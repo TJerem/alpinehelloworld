@@ -3,6 +3,8 @@ pipeline {
     environment {
         DOCKERHUB_AUTH = credentials('DOCKERHUB_AUTH')
         ID_DOCKER = "${DOCKERHUB_AUTH_USR}"
+        HOSTNAME_DEPLOY_STAGING = "ec2-34-238-150-39.compute-1.amazonaws.com"
+        HOSTNAME_DEPLOY_PROD = "ec2-54-145-187-3.compute-1.amazonaws.com"
         PORT_EXPOSED = "80"
     }
 
@@ -71,9 +73,6 @@ pipeline {
 
         stage ('Deploy in staging') {
             agent any
-            environment {
-                HOSTNAME_DEPLOY_STAGING = "ec2-34-238-150-39.compute-1.amazonaws.com"
-            }
             steps {
                 sshagent (credentials: ['SSH_AUTH_SERVER']) {
                     sh '''
@@ -94,11 +93,19 @@ pipeline {
             }
         }
 
+        stage('Test Staging') {
+            agent any
+            steps {
+              script {
+                sh '''
+                  curl ${HOSTNAME_DEPLOY_STAGING} | grep -q "Hello world!"
+                '''
+              }
+            }
+        }
+
         stage ('Deploy in prod') {
             agent any
-            environment {
-                HOSTNAME_DEPLOY_PROD = "ec2-54-145-187-3.compute-1.amazonaws.com"
-            }
             steps {
                 sshagent (credentials: ['SSH_AUTH_PROD']) {
                     sh '''
@@ -116,6 +123,17 @@ pipeline {
                             -C "$command1 && $command2 && $command3 && $command4"
                     '''
                 }
+            }
+        }
+
+        stage('Test Prod') {
+            agent any
+            steps {
+              script {
+                sh '''
+                  curl ${HOSTNAME_DEPLOY_PROD} | grep -q "Hello world!"
+                '''
+              }
             }
         }
     }
